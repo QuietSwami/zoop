@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from zoop.metadata import CatalogEntry
+from zoop.contracts.metadata import CatalogEntry
 from zoop.sqlite import SQLiteMetadata, _row_to_entry
 
 

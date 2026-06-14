@@ -1,6 +1,6 @@
 # SQLite metadata store
 
-from zoop.metadata import CatalogEntry
+from zoop.contracts.metadata import CatalogEntry
 import sqlite3 as sq
 import json
 

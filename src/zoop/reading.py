@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Mapping
 from datetime import datetime
-
+from zoop.utils import to_microsecs
 
 @dataclass
 class Field:
@@ -39,12 +39,6 @@ class Reading:
     tags: Mapping[str,str]
     received_at: int   # ingest time - distinct from ts. microseconds since epoch.
 
-def _to_microsecs(ts: datetime) -> int:
-    """Converts a datatime object into a int, representing the datetime as microsends since UNIX epoch."""
-    if ts.tzinfo is None:
-        raise ValueError("Sample.ts must be timezone-aware (UTC)")
-    return int(ts.timestamp() * 1_000_000)
-
 
 def fan_out(
     sample: Sample,
@@ -54,7 +48,7 @@ def fan_out(
 ) -> list[Reading]:
     """Splits a Sample into a list of Readings"""
 
-    ts = _to_microsecs(sample.ts)
+    ts = to_microsecs(sample.ts)
     device_id = sample.device_id
     readings = []
 
