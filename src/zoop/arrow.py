@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from zoop.reading import Reading
+from zoop.contracts.reading import Reading
 from zoop.utils import split_values
 from zoop.contracts.storage import EmptyReadings
 

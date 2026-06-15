@@ -1,5 +1,5 @@
 from typing import Protocol
-from zoop.reading import Reading
+from zoop.contracts.reading import Reading
 
 class EmptyReadings(Exception):
     def __init__(self, message):

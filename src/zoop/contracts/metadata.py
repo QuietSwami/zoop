@@ -4,8 +4,8 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class CatalogEntry:
-    """Metdata about a Parquet file"""
-    path: str
+    """Metadata about a batch entry"""
+    # path: str
     row_count: int
     ts_min: int
     ts_max: int

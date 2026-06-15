@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pyarrow.parquet as pq
 import pytest
 
-from zoop.reading import Field, Sample, fan_out
+from zoop.contracts.reading import Field, Sample, fan_out
 from zoop.arrow import SCHEMA, ArrowBackend
 from zoop.contracts.storage import EmptyReadings
 
