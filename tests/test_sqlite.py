@@ -3,16 +3,18 @@ import sqlite3
 import pytest
 
 from zoop.contracts.metadata import CatalogEntry
-from zoop.sqlite import SQLiteMetadata, _row_to_entry
+from zoop.sqlite import SQLiteMetadata
 
 
 def _entry(
-    path: str = "data/0001.parquet",
+    location: str = "file:///data/0001.parquet",
+    backend: str = "parquet",
     devices: tuple[str, ...] = ("ws-42",),
     metrics: tuple[str, ...] = ("temperature",),
 ) -> CatalogEntry:
     return CatalogEntry(
-        path=path,
+        location=location,
+        backend=backend,
         row_count=10,
         ts_min=1_000_000,
         ts_max=2_000_000,
@@ -71,29 +73,29 @@ def test_empty_devices_and_metrics(store):
 
 @pytest.mark.unit
 def test_multiple_entries(store):
-    store.store(_entry(path="a.parquet"))
-    store.store(_entry(path="b.parquet"))
+    store.store(_entry(location="file:///a.parquet"))
+    store.store(_entry(location="file:///b.parquet"))
     got = store.list_entries()
     assert len(got) == 2
-    assert {e.path for e in got} == {"a.parquet", "b.parquet"}
+    assert {e.location for e in got} == {"file:///a.parquet", "file:///b.parquet"}
 
 
 @pytest.mark.unit
 def test_persists_across_reopen(tmp_path):
     path = str(tmp_path / "meta.db")
     s1 = SQLiteMetadata(path)
-    s1.store(_entry(path="a.parquet"))
+    s1.store(_entry(location="file:///a.parquet"))
     s1.close()
 
     s2 = SQLiteMetadata(path)
     try:
-        assert [e.path for e in s2.list_entries()] == ["a.parquet"]
+        assert [e.location for e in s2.list_entries()] == ["file:///a.parquet"]
     finally:
         s2.close()
 
 
 @pytest.mark.unit
-def test_duplicate_path_rejected(store):
-    store.store(_entry(path="dup.parquet"))
-    with pytest.raises(sqlite3.IntegrityError):   # path is PRIMARY KEY
-        store.store(_entry(path="dup.parquet"))
+def test_duplicate_location_rejected(store):
+    store.store(_entry(location="file:///dup.parquet"))
+    with pytest.raises(sqlite3.IntegrityError):   # location is PRIMARY KEY
+        store.store(_entry(location="file:///dup.parquet"))

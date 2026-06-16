@@ -10,7 +10,6 @@ from zoop.contracts.reading import Field, Sample, Reading, fan_out
 def test_field_defaults():
     f = Field(metric="temperature", value=21.5, value_type="double")
     assert f.unit is None
-    assert f.quality == "good"
 
 
 @pytest.mark.unit
@@ -32,7 +31,7 @@ def test_sample_holds_multiple_fields():
 def test_reading_rejects_attribute_reassignment():
     r = Reading(
         device_id="ws-42", ts=0, observation_id="o1", metric="temperature",
-        value=21.5, value_type="double", unit="Cel", quality="good",
+        value=21.5, value_type="double", unit="Cel",
         tags={}, received_at=0,
     )
     with pytest.raises(FrozenInstanceError):
@@ -42,9 +41,10 @@ def test_reading_rejects_attribute_reassignment():
 @pytest.mark.unit
 def test_reading_equality():
     kw = dict(device_id="d", ts=1, observation_id="o", metric="m",
-              value=1, value_type="int", unit=None, quality="good",
+              value=1, value_type="int", unit=None,
               tags={}, received_at=2)
     assert Reading(**kw) == Reading(**kw)
+
 
 @pytest.mark.unit
 def test_fan_out_explodes_fields_sharing_context():

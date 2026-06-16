@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import Mapping
 from datetime import datetime
+from typing import Mapping
+
 from zoop.utils import to_microsecs
+
 
 @dataclass
 class Field:
@@ -10,7 +12,6 @@ class Field:
     value: float | int | str | bool # the actual measurement
     value_type: str                 # "double" | "int" | "str" | "bool"
     unit: str | None = None         # normalized name, e.g. "Cel" -> celcius
-    quality: str = "good"           # good | uncertain | bad
 
 @dataclass
 class Sample:
@@ -21,6 +22,7 @@ class Sample:
     # this allows for better metadata management and faster searching.
     tags: Mapping[str, str] # metadata shared by all "fields" entries.
     fields: list[Field]     # 1..N measurements sent by device.
+    idempotency_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +37,6 @@ class Reading:
     value: float | int | str | bool
     value_type: str
     unit: str | None
-    quality: str
     tags: Mapping[str,str]
     received_at: int   # ingest time - distinct from ts. microseconds since epoch.
 
@@ -61,7 +62,6 @@ def fan_out(
             value = field.value,
             value_type = field.value_type,
             unit = field.unit,
-            quality = field.quality,
             tags = sample.tags,
             received_at = received_at
         )

@@ -1,14 +1,17 @@
 # SQLite metadata store
 
-from zoop.contracts.metadata import CatalogEntry
-import sqlite3 as sq
 import json
+import sqlite3 as sq
+from typing import Iterator
+
+from zoop.contracts.metadata import CatalogEntry
 
 
-def _row_to_entry(row: list) -> CatalogEntry:
+def _row_to_entry(row: dict) -> CatalogEntry:
     """Transforms a list of values, to CatalogEntry."""
     return CatalogEntry(
-        path=row["path"],
+        location=row["location"],
+        backend=row["backend"],
         row_count=row["row_count"],
         ts_min=row["ts_min"],
         ts_max=row["ts_max"],
@@ -26,27 +29,26 @@ def dict_factory(cursor, row):
 
 class SQLiteMetadata:
     def __init__(self, path: str):
-        try:
-            self.conn = sq.connect(path)
-            cur = self.conn.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS metadata(
-                    path TEXT PRIMARY KEY, row_count INTEGER,
-                    ts_min INTEGER, ts_max INTEGER, devices TEXT,
-                    metrics TEXT, created_at INTEGER
-                )""")
-            self.conn.row_factory = dict_factory
+        self.conn = sq.connect(path)
+        cur = self.conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS metadata(
+                location TEXT PRIMARY KEY, backend TEXT,
+                row_count INTEGER, ts_min INTEGER,
+                ts_max INTEGER, devices TEXT,
+                metrics TEXT, created_at INTEGER
+            )""")
+        self.conn.row_factory = dict_factory
 
-        except e:
-            log.error(f"SQLiteMetadata - Error: {e}")
 
     def store(self, entry: CatalogEntry) -> None:
         """Stores a metadata entry."""
         cur = self.conn.cursor()
-        insert = "INSERT INTO metadata VALUES (?, ?, ?, ?, ?, ?, ?)"
+        insert = "INSERT INTO metadata VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         cur.execute(insert,
             (
-                entry.path,
+                entry.location,
+                entry.backend,
                 entry.row_count,
                 entry.ts_min,
                 entry.ts_max,
@@ -57,12 +59,41 @@ class SQLiteMetadata:
         )
         self.conn.commit()
 
+    def find(
+        self,
+        *,
+        ts_from: int | None = None,
+        ts_to: int | None = None,
+        limit: int | None = None,
+    ) -> Iterator[CatalogEntry]:
+        clauses: list[str] = []
+        params: list = []
+
+        if ts_from is not None:
+            clauses.append("ts_min <= ?")
+            params.append(ts_from)
+        if ts_to is not None:
+            clauses.append("ts_max >= ?")
+            params.append(ts_to)
+
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = f"SELECT * FROM metadata{where} ORDER_BY ts_min"
+
+        if limit is not None:
+            sql +=" LIMIT ?"
+            params.append(limit)
+
+        cur = self.conn.cursor()
+        for row in cur.execute(sql, params):
+            yield _row_to_entry(row)
+
     def list_entries(self) -> list[CatalogEntry]:
+        """Depreceated - DO NOT USE"""
         list = "SELECT * FROM metadata"
         cur = self.conn.cursor()
         res = cur.execute(list)
-        res = res.fetchall()
-        return [_row_to_entry(row) for row in res]
+        fetched = res.fetchall()
+        return [_row_to_entry(row) for row in fetched]
 
     def close(self) -> None:
         self.conn.close()

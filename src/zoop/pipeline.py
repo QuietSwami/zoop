@@ -1,11 +1,18 @@
 # Ingestion pipeline:
 #   Data -> coerce(raw) -> fan_out → write_parquet(path) -> summarize(readings, path, now) -> store.store(entry)
 
-from datatime import datetime
-from utils import to_microsecs
+from datetime import datetime
 
-from zoop.contracts.reading import Sample, Reading, fan_out
+import msgspec
+
+from zoop.contracts.mapping import MappingSpec, apply_spec
+from zoop.contracts.metadata import MetadataStore
+from zoop.contracts.processor import Processor
+from zoop.contracts.reading import Reading, Sample, fan_out
+from zoop.contracts.storage import StorageBackend
 from zoop.metadata import Metadata
+from zoop.utils import generate_id, to_microsecs
+
 
 class Pipeline:
 
@@ -14,7 +21,7 @@ class Pipeline:
         *,
         storage: StorageBackend,
         metadata_store: MetadataStore,
-        processors: tuple[Processor, ..],
+        processors: tuple[Processor, ...],
         batch_size: int = 250
     ):
         self.metadata_store = metadata_store
@@ -23,23 +30,40 @@ class Pipeline:
         self._buffer: list[Reading] = [] # Ingest buffer
         self.batch_size = batch_size
 
+
     def _coerce(
         self,
         data: dict,
-        observation_id: str,
-        created_at: int
+        spec: MappingSpec
     ) -> Sample:
-        """Transforms data into Sample."""
-        pass
+        """Transforms data into Sample according to a MappingSpec.
+            If no MappingSpec is provied, the function attempts to sniff the data.
+        """
+        raw = msgspec.json.decode(data, type=spec)
+        return apply_spec(raw, spec)
+
 
     def ingest(
         self,
         data: dict,
-        observation_id: str,
-        created_at: int
-    ) -> Sample:
-        sample = self._coerce(data)
-        self._buffer.extend(sample)
+        spec: MappingSpec
+    ) -> None:
+
+        received_at = to_microsecs(datetime.now())
+        sample = self._coerce(data, spec)
+        observation_id = generate_id(
+            sample.device_id,
+            idempotency_key=sample.idempotency_key
+        )
+
+        self._buffer.extend(
+            fan_out(
+                sample,
+                observation_id=observation_id,
+                received_at=received_at
+            )
+        )
+
         if len(self._buffer) >= self.batch_size:
             self.flush()
 
@@ -50,19 +74,13 @@ class Pipeline:
             5. Summarize (extract metadata)
             6. Catalog
         """
-        created_at = to_micrsecs(datetime.now())
-
-        # Coerced
-        sample = self._coerce(data, observation_id, created_at)
-
-        self._buffer.extend(fan_out(sample))
 
         # TODO: This will need to be revamped. The order of the processors should be explicitly set.
         for p in self.processors:
             self._buffer = p.run(self._buffer)
 
-        self.storage.write(readings=readings)
+        location = self.storage.write(readings=self._buffer)
 
         # Summarize the baatch
-        summary = Metadata().summarize(self._buffer)
+        summary = Metadata().extract(self._buffer, str(location), str(self.storage))
         self.metadata_store.store(summary)
