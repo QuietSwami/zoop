@@ -4,29 +4,25 @@ from typing import ClassVar
 import aiomqtt
 import msgspec
 
+from zoop.contracts.bridge import OptionsSchema
 from zoop.contracts.handoff import HandoffRecord, LogProducer
 from zoop.utils.clock import now_micros
 
 
-class MQTTOptions(msgspec.Struct):
+class MQTTOptions(msgspec.Struct, forbid_unknown_fields=True):
     host: str
+    port: int = 1883
     topic: str = "zoop/#"
 
 class MQTTBridge:
     type: ClassVar[str] = "mqtt"
-    def __init__(
-        self,
-        producer: LogProducer,
-        *,
-        host: str,
-        port: int,
-        topic: str
-    ):
-        self._producer, self._host, self._port, self._topic = producer, host, port, topic
+    options_schema: ClassVar[OptionsSchema] = MQTTOptions  # used by `check` to validate options
+    def __init__(self, producer: LogProducer, **options) -> None:
+        opts = msgspec.convert(options, MQTTOptions)  # validate + type the options
+        self._producer = producer
+        self._host, self._port, self._topic = opts.host, opts.port, opts.topic
 
-        # Check if there's a broker available. If not, break
-
-    async def run(self):
+    async def run(self) -> None:
         while True:
             try:
                 async with aiomqtt.Client(

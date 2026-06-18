@@ -12,7 +12,7 @@ def summarize(
 ) -> CatalogEntry:
     """Based on a list of Reading, returns a CatalogEntry for the ingest batch"""
     devices = tuple(sorted({r.device_id for r in input}))
-    metrics = tuple(r.metric for r in input)
+    metrics = tuple(sorted({r.metric for r in input}))
     row_count = len(input)
     ts_min = min(r.ts for r in input)
     ts_max = max(r.ts for r in input)

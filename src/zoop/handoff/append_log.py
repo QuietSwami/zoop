@@ -30,8 +30,9 @@ def iter_records(path: Path) -> Iterator[bytes]:
 
 class AppendLog:
 
-    def __init__(self, dir: Path):
+    def __init__(self, dir: Path, max_bytes: int | None = None):
         self.dir = Path(dir)
+        self.max_bytes = max_bytes
         self.dir.mkdir(parents=True, exist_ok=True)
         self._active = self.dir / "active.log"
         existing = [int(p.stem) for p in self.dir.glob("*.sealed") if p.stem.isdigit()]
@@ -64,6 +65,11 @@ class AppendLog:
         rec = HEADER.pack(len(payload), zlib.crc32(payload) & 0xFFFFFFFF) + payload
         with self._lock:
             os.write(self._fd, rec)
+            size = os.fstat(self._fd).st_size
+        # Size-based rotation runs OUTSIDE the lock: seal() takes the same
+        # non-reentrant lock, so calling it while holding the lock would deadlock.
+        if self.max_bytes is not None and size >= self.max_bytes:
+            self.seal()
 
     def commit(self) -> None:
         """Forces the OS to flush the file to the physical disk"""

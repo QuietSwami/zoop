@@ -1,0 +1,13 @@
+{
+  "version": "1",
+  "source": "dummy",
+  "device_key": "device",
+  "ts_key": "ts",
+  "ts_unit": "ms",
+  "fields": [
+    { "key": "temperature", "type": "double", "unit": "Cel" },
+    { "key": "humidity", "type": "double", "unit": "%" }
+  ],
+  "tags": {},
+  "idem_key": null
+}

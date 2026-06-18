@@ -76,8 +76,8 @@ class SQLiteCatalog:
             clauses.append("ts_max >= ?")
             params.append(ts_to)
 
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        sql = f"SELECT * FROM metadata{where} ORDER_BY ts_min"
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = f"SELECT * FROM metadata{where} ORDER BY ts_min"
 
         if limit is not None:
             sql +=" LIMIT ?"

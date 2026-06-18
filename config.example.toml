@@ -1,0 +1,40 @@
+# Zoop gateway configuration (example)
+#
+# Matches the current `Config` schema:  Config -> bridges: list[BridgeConfig]
+# Each BridgeConfig (kw_only):
+#   type     : which bridge to run (registry key, e.g. "mqtt", "http")
+#   id       : unique instance id (also names the log dir: logs/<type>-<id>/)
+#   enabled  : default true; set false to keep a bridge defined but not started
+#   options  : bridge-specific settings, validated by that bridge itself
+#
+# Decode with: msgspec.toml.decode(path.read_bytes(), type=Config)
+
+# --- An MQTT bridge: subscribe to a broker, durably append to its log ---
+[[bridges]]
+type    = "mqtt"
+id      = "1"
+enabled = true
+options = { host = "localhost", port = 1883, topic = "zoop/#" }
+
+# --- A second MQTT bridge instance (different broker / topic) ---
+[[bridges]]
+type    = "mqtt"
+id      = "2"
+enabled = false                                  # defined but not started
+options = { host = "broker.internal", port = 1883, topic = "farm/+/data" }
+
+# --- An HTTP bridge: accept POSTed payloads ---
+[[bridges]]
+type    = "http"
+id      = "1"
+options = { host = "0.0.0.0", port = 8080 }      # enabled defaults to true
+
+# NOTE: runtime/path settings (data dir, spec dir, batch_size, poll/seal
+# intervals) are NOT in the `Config` schema yet — `Config` only has `bridges`.
+# When the launcher lands, add those fields to `Config` (and to this example),
+# e.g.:
+#   data_dir      = "/var/lib/zoop"
+#   specs_dir     = "/etc/zoop/specs"
+#   batch_size    = 1000
+#   poll_interval = 0.5
+# Until then, including them here would be silently ignored by msgspec.

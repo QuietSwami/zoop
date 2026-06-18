@@ -1,0 +1,15 @@
+# Zoop demo config: a fast dummy bridge driving the full ingest path end to end.
+#
+#   dummy bridge -> per-bridge append-log -> core drains sealed segments ->
+#   coerce (specs/dummy.json) -> fan_out -> Parquet (data/) + SQLite catalog.
+#
+# Run with:  zoop run --config config.dummy.toml
+
+specs_dir     = "specs"
+segment_bytes = 512    # tiny so segments seal quickly under load
+poll_interval = 0.2
+
+[[bridges]]
+type    = "dummy"
+id      = "1"
+options = { source = "dummy", interval = 0.05, devices = 5 }
