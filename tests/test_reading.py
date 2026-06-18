@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from zoop.contracts.reading import Field, Sample, Reading, fan_out
+from zoop.contracts.model import Field, Reading, Sample, fan_out
 
 
 @pytest.mark.unit

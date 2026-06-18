@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 
 import pyarrow.parquet as pq
 import pytest
+from zoop.storage.parquet import SCHEMA, ParquetBackend
 
-from zoop.contracts.reading import Field, Sample, fan_out
-from zoop.arrow import SCHEMA, ArrowBackend
+from zoop.contracts.model import Field, Sample, fan_out
 from zoop.contracts.storage import EmptyReadings
 
 
@@ -27,14 +27,14 @@ def readings():
 
 @pytest.mark.unit
 def test_roundtrip_row_count(readings, tmp_path):
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     loc = arr.write(readings=readings)
     assert pq.read_table(loc).num_rows == len(readings) == 4
 
 
 @pytest.mark.unit
 def test_written_schema_matches(readings, tmp_path):
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     loc = arr.write(readings=readings)
     assert pq.read_table(loc).schema.equals(SCHEMA, check_metadata=False)
 
@@ -42,7 +42,7 @@ def test_written_schema_matches(readings, tmp_path):
 @pytest.mark.unit
 def test_value_demultiplexed_by_type(readings, tmp_path):
     """Each row fills exactly the column matching its value_type; others are NULL."""
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     loc = arr.write(readings=readings)
     rows = {row["metric"]: row for row in pq.read_table(loc).to_pylist()}
 
@@ -60,7 +60,7 @@ def test_value_demultiplexed_by_type(readings, tmp_path):
 
 @pytest.mark.unit
 def test_tags_roundtrip(readings, tmp_path):
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     loc = arr.write(readings=readings)
     row = pq.read_table(loc).to_pylist()[0]
     assert dict(row["tags"]) == {"location": "barn-3"}
@@ -68,7 +68,7 @@ def test_tags_roundtrip(readings, tmp_path):
 
 @pytest.mark.unit
 def test_shared_context_preserved(readings, tmp_path):
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     loc = arr.write(readings=readings)
     table = pq.read_table(loc)
     assert set(table.column("observation_id").to_pylist()) == {"obs-1"}
@@ -77,6 +77,6 @@ def test_shared_context_preserved(readings, tmp_path):
 
 @pytest.mark.unit
 def test_empty_readings_raises(tmp_path):
-    arr = ArrowBackend("parquet", tmp_path)
+    arr = ParquetBackend("parquet", tmp_path)
     with pytest.raises(EmptyReadings):
         arr.write(readings=[])

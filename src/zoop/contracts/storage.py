@@ -1,9 +1,8 @@
-from pathlib import Path
 from typing import Protocol
 
 import pyarrow as pa
 
-from zoop.contracts.reading import Reading
+from zoop.contracts.model import Reading
 
 
 class EmptyReadings(Exception):

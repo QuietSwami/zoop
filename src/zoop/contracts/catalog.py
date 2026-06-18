@@ -2,8 +2,6 @@
 from dataclasses import dataclass
 from typing import Iterator, Protocol
 
-from typing_extensions import Iterator
-
 
 @dataclass(frozen=True)
 class CatalogEntry:
@@ -23,7 +21,7 @@ class CatalogEntry:
     created_at: int
 
 
-class MetadataStore(Protocol):
+class CatalogStore(Protocol):
     """Base class for all metadata stores."""
 
     def store(self, entry: CatalogEntry) -> None:
@@ -42,4 +40,7 @@ class MetadataStore(Protocol):
         pass
 
     def close(self) -> None:
+        pass
+
+    def kind(self) -> str:
         pass

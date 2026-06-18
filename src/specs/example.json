@@ -1,0 +1,16 @@
+// Example of a spec for a soil moisture device
+{
+    "version": "1.0",
+    "source": "soil-moisture", // device type or other identifier you want. use it to id your devices.
+    "device_key": "id",
+    "ts_key": "timestamp",
+    "ts_unit": "us", // either s (seconds), ms (microseconds), us (nanoseconds), or iso
+    "fields": [
+        { "key": "moisture", "type": "double", "unit": "%" },
+        { "key": "soil_temp", "type": "double", "unit": "Cel" },
+        { "key": "ec", "type": "double", "unit": "dS/m" },
+        { "key": "batt", "type": "int", "unit": "%" }
+    ],
+    "tags": { "crop": "maize", "site": "field-north" },
+    "idem_key": "msg_id"
+}

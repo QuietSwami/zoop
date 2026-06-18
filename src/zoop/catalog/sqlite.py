@@ -4,7 +4,7 @@ import json
 import sqlite3 as sq
 from typing import Iterator
 
-from zoop.contracts.metadata import CatalogEntry
+from zoop.contracts.catalog import CatalogEntry
 
 
 def _row_to_entry(row: dict) -> CatalogEntry:
@@ -27,7 +27,7 @@ def dict_factory(cursor, row):
     fields = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
 
-class SQLiteMetadata:
+class SQLiteCatalog:
     def __init__(self, path: str):
         self.conn = sq.connect(path)
         cur = self.conn.cursor()
@@ -97,3 +97,6 @@ class SQLiteMetadata:
 
     def close(self) -> None:
         self.conn.close()
+
+    def kind(self) -> str:
+        return "sqlite"

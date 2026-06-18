@@ -1,17 +1,19 @@
 # Ingestion pipeline:
 #   Data -> coerce(raw) -> fan_out → write_parquet(path) -> summarize(readings, path, now) -> store.store(entry)
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import msgspec
 
-from zoop.contracts.mapping import MappingSpec, apply_spec
-from zoop.contracts.metadata import MetadataStore
+from zoop.catalog.summarize import summarize
+from zoop.contracts.catalog import CatalogStore
+from zoop.contracts.mapping import MappingSpec
+from zoop.contracts.model import Reading, Sample, fan_out
 from zoop.contracts.processor import Processor
-from zoop.contracts.reading import Reading, Sample, fan_out
 from zoop.contracts.storage import StorageBackend
-from zoop.metadata import Metadata
-from zoop.utils import generate_id, to_microsecs
+from zoop.normalize.coerce import apply_spec
+from zoop.utils.clock import to_microsecs
+from zoop.utils.ids import generate_id
 
 
 class Pipeline:
@@ -20,7 +22,7 @@ class Pipeline:
         self,
         *,
         storage: StorageBackend,
-        metadata_store: MetadataStore,
+        metadata_store: CatalogStore,
         processors: tuple[Processor, ...],
         batch_size: int = 250
     ):
@@ -33,7 +35,7 @@ class Pipeline:
 
     def _coerce(
         self,
-        data: dict,
+        data: str,
         spec: MappingSpec
     ) -> Sample:
         """Transforms data into Sample according to a MappingSpec.
@@ -45,11 +47,11 @@ class Pipeline:
 
     def ingest(
         self,
-        data: dict,
+        data: str,
         spec: MappingSpec
     ) -> None:
 
-        received_at = to_microsecs(datetime.now())
+        received_at = to_microsecs(datetime.now(timezone.utc))
         sample = self._coerce(data, spec)
         observation_id = generate_id(
             sample.device_id,
@@ -74,13 +76,20 @@ class Pipeline:
             5. Summarize (extract metadata)
             6. Catalog
         """
+        batch, self._buffer = self._buffer, []
 
         # TODO: This will need to be revamped. The order of the processors should be explicitly set.
-        for p in self.processors:
-            self._buffer = p.run(self._buffer)
+        if self.processors:
+            for p in self.processors:
+                batch = p.run(batch)
 
-        location = self.storage.write(readings=self._buffer)
+        if not batch:
+            return
+
+        location = self.storage.write(readings=batch)
 
         # Summarize the baatch
-        summary = Metadata().extract(self._buffer, str(location), str(self.storage))
+        summary = summarize(self._buffer, str(location), self.metadata_store.kind())
+
         self.metadata_store.store(summary)
+        self._buffer = []

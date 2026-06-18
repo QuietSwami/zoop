@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from zoop.contracts.reading import Reading
+from zoop.contracts.model import Reading
 
 
 class Processor(Protocol):

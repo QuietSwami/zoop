@@ -2,13 +2,13 @@
 
 import uuid
 from pathlib import Path
+from typing import Mapping
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from zoop.contracts.reading import Reading
+from zoop.contracts.model import Reading
 from zoop.contracts.storage import EmptyReadings
-from zoop.utils import split_values
 
 SCHEMA = pa.schema([
     ("device_id",      pa.string()),
@@ -25,7 +25,20 @@ SCHEMA = pa.schema([
     ("received_at",    pa.timestamp("us", tz="UTC"))
 ])
 
-class ArrowBackend:
+
+def split_values(r) -> tuple:
+    """The value for the given type, sets the rest as null.
+        This is what allows the existance of several types in the same table.
+    """
+    return {
+        "double": (r.value, None, None, None),   # → value_double
+        "int":    (None, r.value, None, None),   # → value_int
+        "bool":   (None, None, r.value, None),   # → value_bool
+        "str":    (None, None, None, r.value),   # → value_str
+    }[r.value_type]
+
+
+class ParquetBackend:
     """Arrow Storage Backend. Writes Parquet files into a given filepath."""
 
     def __init__(self, name: str, path: Path):
@@ -50,7 +63,7 @@ class ArrowBackend:
         if not readings:
             raise EmptyReadings("Provided readings list is empty...")
 
-        cols = {name: [] for name in SCHEMA.names}
+        cols: Mapping[str, list] = {name: [] for name in SCHEMA.names}
 
         for reading in readings:
             d, i, b, s = split_values(reading)
@@ -73,5 +86,5 @@ class ArrowBackend:
         pq.write_table(table, pq_location, compression="zstd")
         return str(pq_location)
 
-    def kind(self):
+    def kind(self) -> str:
         return self.name

@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-from zoop.contracts.metadata import CatalogEntry
-from zoop.sqlite import SQLiteMetadata
+from zoop.contracts.catalog import CatalogEntry
+from zoop.catalog.sqlite import SQLiteCatalog
 
 
 def _entry(
@@ -26,7 +26,7 @@ def _entry(
 
 @pytest.fixture
 def store(tmp_path):
-    s = SQLiteMetadata(str(tmp_path / "meta.db"))
+    s = SQLiteCatalog(str(tmp_path / "meta.db"))
     yield s
     s.close()
 
@@ -83,11 +83,11 @@ def test_multiple_entries(store):
 @pytest.mark.unit
 def test_persists_across_reopen(tmp_path):
     path = str(tmp_path / "meta.db")
-    s1 = SQLiteMetadata(path)
+    s1 = SQLiteCatalog(path)
     s1.store(_entry(location="file:///a.parquet"))
     s1.close()
 
-    s2 = SQLiteMetadata(path)
+    s2 = SQLiteCatalog(path)
     try:
         assert [e.location for e in s2.list_entries()] == ["file:///a.parquet"]
     finally:

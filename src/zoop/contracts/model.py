@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping
 
-from zoop.utils import to_microsecs
+from zoop.utils.clock import to_microsecs
 
 
 @dataclass
