@@ -1,14 +1,12 @@
 # Contract used to implement new transport bridges.
 
-from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Any, ClassVar, Protocol
 
-from zoop.handoff.append_log import AppendLog
+from zoop.contracts.handoff import LogProducer
+
 
 class TransportBridge(Protocol):
-    type: str
-    id: str
-    producer: AppendLog
+    type: ClassVar[str]
 
-    async def run(self) -> None:
-        pass
+    def __init__(self, producer: LogProducer, **options: Any) -> None: ...
+    async def run(self) -> None: ...

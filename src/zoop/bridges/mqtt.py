@@ -1,10 +1,10 @@
 import asyncio
+from typing import ClassVar
 
 import aiomqtt
 import msgspec
 
-from zoop.contracts.bridge import HandoffRecord
-from zoop.contracts.handoff import LogProducer
+from zoop.contracts.handoff import HandoffRecord, LogProducer
 from zoop.utils.clock import now_micros
 
 
@@ -13,7 +13,7 @@ class MQTTOptions(msgspec.Struct):
     topic: str = "zoop/#"
 
 class MQTTBridge:
-    name = "mqtt"
+    type: ClassVar[str] = "mqtt"
     def __init__(
         self,
         producer: LogProducer,
@@ -32,7 +32,7 @@ class MQTTBridge:
                 async with aiomqtt.Client(
                     self._host,
                     self._port,
-                    identifier=f"zoop-{self.name}"
+                    identifier=f"zoop-{self.type}"
                 ) as client:
                     await client.subscribe(self._topic, qos=1)
                     async for message in client.messages:
@@ -42,7 +42,11 @@ class MQTTBridge:
                             payload=message.payload,
                             received_at=now_micros()
                         )
-                        self._producer.append(encode(record))
+
+                        self._producer.append(
+                            msgspec.msgpack.encode(record)
+                        )
+
                         self._producer.commit()
             except aiomqtt.MqttError:
                 await asyncio.sleep(5)
