@@ -2,7 +2,7 @@
 #   Data -> coerce(raw) -> fan_out → write_parquet(path) -> summarize(readings, path, now) -> store.store(entry)
 
 import asyncio
-import sys
+import logging
 from datetime import datetime, timezone
 
 import msgspec
@@ -19,6 +19,8 @@ from zoop.normalize.specs import SpecRegistry
 from zoop.utils.clock import to_microsecs
 from zoop.utils.ids import generate_id
 
+log = logging.getLogger(__name__)
+
 
 class Pipeline:
 
@@ -28,13 +30,13 @@ class Pipeline:
         storage: StorageBackend,
         metadata_store: CatalogStore,
         processors: tuple[Processor, ...],
-        batch_size: int = 250
+        parquet_batch_rows: int = 250
     ):
         self.metadata_store = metadata_store
         self.storage = storage
         self.processors = processors
         self._buffer: list[Reading] = [] # Ingest buffer
-        self.batch_size = batch_size
+        self.parquet_batch_rows = parquet_batch_rows
 
 
     def _coerce(
@@ -70,7 +72,7 @@ class Pipeline:
             )
         )
 
-        if len(self._buffer) >= self.batch_size:
+        if len(self._buffer) >= self.parquet_batch_rows:
             self.flush()
 
     def flush(self) -> None:
@@ -97,6 +99,7 @@ class Pipeline:
 
         self.metadata_store.store(summary)
         self._buffer = []
+        log.debug("flushed %d readings -> %s", len(batch), location)
 
 
 class Core:
@@ -121,6 +124,7 @@ class Core:
         self.pipeline = pipeline
         self.poll_interval = poll_interval
 
+
     def _ingest_segment(self, segment) -> None:
         for rb in self.drainer.read(segment):
             record = msgspec.msgpack.decode(rb, type=HandoffRecord)
@@ -128,7 +132,7 @@ class Core:
                 spec = self.specs.get(record.source)
             except SpecError as e:
                 # dead-letter-lite: skip records we can't type, don't crash.
-                print(f"core: skipping record from '{record.source}': {e}", file=sys.stderr)
+                log.warning("skipping record from %r: %s", record.source, e)
                 continue
             self.pipeline.ingest(record.payload.decode(), spec)
 
@@ -142,6 +146,7 @@ class Core:
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
             segments = self.drainer.sealed()
+
             if not segments:
                 await asyncio.sleep(self.poll_interval)
                 continue
@@ -149,6 +154,7 @@ class Core:
                 self._ingest_segment(segment)
                 self.pipeline.flush()
                 self.drainer.discard(segment)
+
         # Final drain pass after stop, then flush anything still buffered.
         self._drain_once()
         self.pipeline.flush()

@@ -9,6 +9,8 @@ import zlib
 from collections.abc import Iterator
 from pathlib import Path
 
+from zoop.utils.clock import now_micros
+
 # 8 byte record header format -> written in fron of every payload
 # Identifies where the record ends.
 HEADER = struct.Struct(">II")
@@ -30,21 +32,41 @@ def iter_records(path: Path) -> Iterator[bytes]:
 
 class AppendLog:
 
-    def __init__(self, dir: Path, max_bytes: int | None = None):
+    def __init__(
+        self,
+        dir: Path,
+        max_bytes: int | None = None,
+        timeout: int = 300 # 5 minutes
+    ):
         self.dir = Path(dir)
         self.max_bytes = max_bytes
+
+        # create directory if it doesn't exit
         self.dir.mkdir(parents=True, exist_ok=True)
+
+        # current active file
         self._active = self.dir / "active.log"
+
+        # check if there's an exisiting file -
         existing = [int(p.stem) for p in self.dir.glob("*.sealed") if p.stem.isdigit()]
+
+        # start sequence from last file, if it exists.
         self._seq = itertools.count(max(existing, default=0) + 1)
+
+        # recover the last file, if it exists.
         self._recover()
-        # we start the append log
+
+        # lock to be used by write and seal operations
+        self._lock = threading.Lock()
+
+        # start the append log
         # O_WRONLY = write only
         # O_CREAT = create file if it doesn't exist
         # O_APPEND = every write automatically goes to the end of file.
         # 0o644 = Unix permisions if the file is created.
-        self._lock = threading.Lock()
         self._fd = os.open(self._active, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        self._timeout = timeout
+        self._last_seal = now_micros()
 
     def _recover(self) -> None:
         """Recovers any file if the process stops."""
@@ -89,7 +111,12 @@ class AppendLog:
             sealed = self.dir / f"{next(self._seq):08d}.sealed"
             self._active.rename(sealed)
             self._fd = os.open(self._active, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)  # fresh active
+            self._last_seal = now_micros()
             return sealed
+
+    def seal_if_stale(self, timeout: int) -> None:
+        if now_micros() - self._last_seal >= timeout:
+            self.seal()
 
     def close(self) -> None:
         os.fsync(self._fd)

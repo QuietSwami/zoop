@@ -43,7 +43,7 @@ def test_run_end_to_end(tmp_path: Path):
     producer = AppendLog(log_dir / "dummy-1", max_bytes=256)
     bridge = DummyBridge(producer, source="dummy", interval=0.02, devices=5)
 
-    storage = ParquetBackend("parquet", data_dir)
+    storage = ParquetBackend(data_dir)
     catalog = SQLiteCatalog(db_path)
     specs = SpecRegistry(specs_dir)
     pipeline = Pipeline(storage=storage, metadata_store=catalog, processors=())

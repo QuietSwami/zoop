@@ -57,12 +57,16 @@ def test_create_builds_bridge_instances(tmp_path: Path, monkeypatch):
         BridgeConfig(type="fake", id="a", options={"k": "v"}),
         BridgeConfig(type="other", id="b"),
     ]
-    bridges = reg.create(configs)
+    bridges, logs = reg.create(configs)
 
     assert len(bridges) == 2
     assert isinstance(bridges[0], FakeBridge)
     assert bridges[0].options == {"k": "v"}
     assert isinstance(bridges[1], OtherBridge)
+    # create() also returns the per-bridge append-logs, wired into each bridge.
+    assert len(logs) == 2
+    assert bridges[0].producer is logs[0]
+    assert bridges[1].producer is logs[1]
     # producer was wired in and a per-bridge log dir was created.
     assert (tmp_path / "logs" / "fake-a").is_dir()
     assert (tmp_path / "logs" / "other-b").is_dir()

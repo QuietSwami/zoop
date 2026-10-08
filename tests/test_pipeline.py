@@ -27,14 +27,14 @@ def _reading(device_id: str, ts: int, metric: str, value, vtype: str) -> Reading
     )
 
 
-def _make_pipeline(tmp_path: Path, batch_size: int = 250) -> tuple:
-    storage = ParquetBackend("parquet", tmp_path / "parquet")
+def _make_pipeline(tmp_path: Path, parquet_batch_rows: int = 250) -> tuple:
+    storage = ParquetBackend(tmp_path / "parquet")
     catalog = SQLiteCatalog(str(tmp_path / "catalog.db"))
     pipeline = Pipeline(
         storage=storage,
         metadata_store=catalog,
         processors=(),
-        batch_size=batch_size,
+        parquet_batch_rows=parquet_batch_rows,
     )
     return pipeline, storage, catalog
 
@@ -109,7 +109,7 @@ def test_flush_resets_buffer_no_duplicate_writes(tmp_path: Path):
 )
 @pytest.mark.integration
 def test_ingest_end_to_end(tmp_path: Path):
-    pipeline, _, catalog = _make_pipeline(tmp_path, batch_size=1)
+    pipeline, _, catalog = _make_pipeline(tmp_path, parquet_batch_rows=1)
     try:
         spec = MappingSpec(
             version="1",

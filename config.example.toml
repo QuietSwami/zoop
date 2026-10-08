@@ -9,6 +9,12 @@
 #
 # Decode with: msgspec.toml.decode(path.read_bytes(), type=Config)
 
+[[storage]]
+type = "parquet"
+path = "./data" # a path or a URI to an external service.
+options = {} # if using other types of storage backends
+
+
 # --- An MQTT bridge: subscribe to a broker, durably append to its log ---
 [[bridges]]
 type    = "mqtt"
@@ -29,12 +35,9 @@ type    = "http"
 id      = "1"
 options = { host = "0.0.0.0", port = 8080 }      # enabled defaults to true
 
-# NOTE: runtime/path settings (data dir, spec dir, batch_size, poll/seal
-# intervals) are NOT in the `Config` schema yet — `Config` only has `bridges`.
-# When the launcher lands, add those fields to `Config` (and to this example),
-# e.g.:
-#   data_dir      = "/var/lib/zoop"
-#   specs_dir     = "/etc/zoop/specs"
-#   batch_size    = 1000
-#   poll_interval = 0.5
-# Until then, including them here would be silently ignored by msgspec.
+# Optional runtime/path settings (all have defaults), e.g.:
+#   data_dir           = "/var/lib/zoop"
+#   specs_dir          = "/etc/zoop/specs"
+#   segment_bytes      = 65536   # bytes per append-log segment before it seals
+#   parquet_batch_rows = 1000    # readings buffered before a Parquet file is written
+#   poll_interval      = 0.5

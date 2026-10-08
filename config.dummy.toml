@@ -6,10 +6,21 @@
 # Run with:  zoop run --config config.dummy.toml
 
 specs_dir     = "specs"
-segment_bytes = 512    # tiny so segments seal quickly under load
+segment_bytes = 65536    # tiny so segments seal quickly under load
 poll_interval = 0.2
+parquet_batch_rows = 65536 # readings buffered before a Parquet file is written
+
+[[storage]] # the default backend is parquet, if no storage backend is provided
+type = "parquet"
+path = "./data" # a path or a URI to an external service.
+options = {} # if using other types of storage backends
 
 [[bridges]]
 type    = "dummy"
 id      = "1"
 options = { source = "dummy", interval = 0.05, devices = 5 }
+
+# [[bridges]]
+# type = "http"
+# id = "1"
+# options = { host = "0.0.0.0", port = 8080, path = "/ingest"}

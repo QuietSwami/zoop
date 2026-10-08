@@ -1,14 +1,20 @@
 # PyArrow Storage Backend
 
+import logging
 import uuid
 from pathlib import Path
-from typing import Mapping
+from typing import Any, ClassVar, Mapping
 
+import msgspec
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from zoop.contracts.model import Reading
-from zoop.contracts.storage import EmptyReadings
+from zoop.contracts.storage import EmptyReadings, OptionsSchema
+
+log = logging.getLogger(__name__)
+
+
 
 SCHEMA = pa.schema([
     ("device_id",      pa.string()),
@@ -37,14 +43,21 @@ def split_values(r) -> tuple:
         "str":    (None, None, None, r.value),   # → value_str
     }[r.value_type]
 
+class ParquetOptions(msgspec.Struct, forbid_unknown_fields=True):
+    compression: str = "zstd"
 
 class ParquetBackend:
     """Arrow Storage Backend. Writes Parquet files into a given filepath."""
+    type: ClassVar[str] = "parquet"
+    options_schema: ClassVar[OptionsSchema] = ParquetOptions
 
-    def __init__(self, name: str, path: Path):
-        self.name = name
-        self.path = path
+    def __init__(self, path: str, **options: Any) -> None:
+        self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=True) # Ensures path exists.
+
+        opts = msgspec.convert(options, ParquetOptions)
+        self._compression: str = opts.compression
+
 
     def read(self, *, location: str) ->  pa.Table:
         """Reads a parquet file from a given location"""
@@ -57,8 +70,10 @@ class ParquetBackend:
     def _next_path(self) -> Path:
         return self.path.joinpath(f"{uuid.uuid4()}.parquet")
 
-    def write(self, readings: list[Reading]) -> str:
+    def write(self, *, readings: list[Reading]) -> str:
         """Writes a list of Reading to a parquet file."""
+
+        log.info(f"writing {len(readings)} to file")
 
         if not readings:
             raise EmptyReadings("Provided readings list is empty...")
@@ -83,8 +98,8 @@ class ParquetBackend:
         pq_location = self._next_path()
 
         table = pa.table(cols, schema=SCHEMA)
-        pq.write_table(table, pq_location, compression="zstd")
+        pq.write_table(table, pq_location, compression=self._compression)
         return str(pq_location)
 
     def kind(self) -> str:
-        return self.name
+        return self.type

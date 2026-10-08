@@ -6,6 +6,7 @@ wraps it in a HandoffRecord, and appends it to the durable log.
 """
 
 import asyncio
+import logging
 import random
 from typing import ClassVar
 
@@ -14,6 +15,8 @@ import msgspec
 from zoop.contracts.bridge import OptionsSchema
 from zoop.contracts.handoff import HandoffRecord, LogProducer
 from zoop.utils.clock import now_micros
+
+log = logging.getLogger(__name__)
 
 
 class DummyOptions(msgspec.Struct, forbid_unknown_fields=True):
@@ -40,6 +43,10 @@ class DummyBridge:
         }
 
     async def run(self) -> None:
+        log.info(
+            "dummy bridge: %d device(s) every %.3fs as source %r",
+            self.opts.devices, self.opts.interval, self.opts.source,
+        )
         while True:
             for i in range(self.opts.devices):
                 record = HandoffRecord(

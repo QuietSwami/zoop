@@ -16,3 +16,7 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+
+logs/
+data/
+catalog.db

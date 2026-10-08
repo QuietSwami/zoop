@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import ClassVar
 
 import aiomqtt
@@ -7,6 +8,8 @@ import msgspec
 from zoop.contracts.bridge import OptionsSchema
 from zoop.contracts.handoff import HandoffRecord, LogProducer
 from zoop.utils.clock import now_micros
+
+log = logging.getLogger(__name__)
 
 
 class MQTTOptions(msgspec.Struct, forbid_unknown_fields=True):
@@ -31,6 +34,10 @@ class MQTTBridge:
                     identifier=f"zoop-{self.type}"
                 ) as client:
                     await client.subscribe(self._topic, qos=1)
+                    log.info(
+                        "MQTT bridge connected to %s:%d, subscribed to %r",
+                        self._host, self._port, self._topic,
+                    )
                     async for message in client.messages:
                         source = message.topic.value.split("/")[1]
                         record = HandoffRecord(
@@ -44,5 +51,6 @@ class MQTTBridge:
                         )
 
                         self._producer.commit()
-            except aiomqtt.MqttError:
+            except aiomqtt.MqttError as e:
+                log.warning("MQTT connection lost (%s); reconnecting in 5s", e)
                 await asyncio.sleep(5)
